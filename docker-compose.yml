@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: chatapp_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chatapp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # S3 Object Storage Emulator (100% S3 API Compatible)
+  s3:
+    image: adobe/s3mock:latest
+    container_name: chatapp_s3
+    restart: always
+    environment:
+      - initialBuckets=chatapp-media-encrypted
+    ports:
+      - "9090:9090"
+
+volumes:
+  postgres_data:
