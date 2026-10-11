@@ -23,12 +23,12 @@ import { UserAvatar } from '../../src/components/UserAvatar';
 export default function ProfileSetupPage() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { user, updateUserProfile, token } = useAuthStore();
+  const { user, updateUserProfile } = useAuthStore();
   const { themeMode } = useUIStore();
   const theme = Colors[themeMode] || Colors.dark;
 
   const initialName = params.name || user?.display_name || user?.name || 'User';
-  const defaultUsername = initialName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const defaultUsername = user?.username || initialName.toLowerCase().replace(/[^a-z0-9]/g, '_');
 
   const [username, setUsername] = useState(defaultUsername);
   const [bio, setBio] = useState('Hey there! I am using ChatApp.');
@@ -87,36 +87,46 @@ export default function ProfileSetupPage() {
     setIsLoading(true);
 
     try {
-      await updateUserProfile({
+      const result = await updateUserProfile({
+        username: cleanUsername,
         name: initialName,
         bio: bio.trim(),
         avatar: avatarUri,
       });
 
-      setIsLoading(false);
-      // Profile complete -> Navigate to Chats
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update profile');
+      }
+
+      // Profile is saved successfully; only then open the inbox.
       router.replace('/(tabs)/chats');
     } catch (err) {
-      setIsLoading(false);
       setError(err.message || 'Failed to update profile');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // Skip feature: skips custom avatar & bio, uses defaults
   const handleSkip = async () => {
+    if (isLoading) return;
+    setError('');
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      await updateUserProfile({
+      const result = await updateUserProfile({
+        username: username.trim().replace(/^@/, ''),
         name: initialName,
         bio: 'Hey there! I am using ChatApp.',
-        avatar: '',
       });
+      if (!result.success) {
+        setError(result.error || 'Failed to save profile');
+        return;
+      }
+      router.replace('/(tabs)/chats');
     } catch (e) {
-      console.warn('Skip profile update warning:', e);
+      setError(e.message || 'Failed to save profile');
     } finally {
       setIsLoading(false);
-      // Skip directly to main inbox
-      router.replace('/(tabs)/chats');
     }
   };
 
