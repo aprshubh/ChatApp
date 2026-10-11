@@ -129,11 +129,11 @@ export async function request(endpoint, options = {}, isRetry = false) {
 }
 
 export const authApi = {
-  async register({ username, name, email, password }) {
+  async register({ name, email, password }) {
+    // Username is chosen during profile setup, not during registration.
     return request('/auth/register', {
       method: 'POST',
       body: JSON.stringify({
-        username: username || (name ? name.toLowerCase().replace(/[^a-z0-9_]/g, '') : ''),
         display_name: name,
         email,
         password,
