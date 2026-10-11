@@ -157,9 +157,10 @@ export const useAuthStore = create((set, get) => {
     updateUserProfile: async (profileData) => {
       try {
         const updated = await authApi.updateProfile(profileData);
-        set((state) => ({ user: { ...state.user, ...updated } }));
-        await storage.saveUser(updated);
-        return { success: true };
+        const nextUser = { ...(get().user || {}), ...updated };
+        set({ user: nextUser });
+        await storage.saveUser(nextUser);
+        return { success: true, user: nextUser };
       } catch (err) {
         return { success: false, error: err.message };
       }
