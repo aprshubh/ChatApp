@@ -21,6 +21,7 @@ import (
 
 var (
 	ErrUserAlreadyExists  = errors.New("user with this email or username already exists")
+	ErrUsernameAlreadyExists = errors.New("username is already taken")
 	ErrInvalidCredentials = errors.New("invalid email/username or password")
 	ErrUserNotFound       = errors.New("user not found")
 	ErrInvalidToken       = errors.New("invalid or expired token")
@@ -433,21 +434,42 @@ func (s *postgresService) GetUserByUsername(ctx context.Context, username string
 }
 
 func (s *postgresService) UpdateProfile(ctx context.Context, userID string, req UpdateProfileRequest) (*User, error) {
+	var username *string
+	if req.Username != nil {
+		clean := strings.ToLower(strings.TrimSpace(*req.Username))
+		if len(clean) < 3 || len(clean) > 30 {
+			return nil, fmt.Errorf("username must be between 3 and 30 characters")
+		}
+		for _, char := range clean {
+			if !((char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == '_') {
+				return nil, fmt.Errorf("username may contain only letters, numbers, and underscores")
+			}
+		}
+		var exists bool
+		if err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(username) = $1 AND id <> $2)`, clean, userID).Scan(&exists); err != nil {
+			return nil, fmt.Errorf("failed checking username availability: %w", err)
+		}
+		if exists {
+			return nil, ErrUsernameAlreadyExists
+		}
+		username = &clean
+	}
+
 	updateSQL := `
 		UPDATE users
-		SET 
-			display_name = COALESCE($1, display_name),
-			bio = COALESCE($2, bio),
-			avatar_url = COALESCE($3, avatar_url),
+		SET
+			username = COALESCE($1, username),
+			display_name = COALESCE($2, display_name),
+			bio = COALESCE($3, bio),
+			avatar_url = COALESCE($4, avatar_url),
 			updated_at = NOW()
-		WHERE id = $4
+		WHERE id = $5
 		RETURNING id, username, display_name, email, avatar_url, bio, is_verified, is_online, last_seen_at, created_at;
 	`
 	var user User
 	var avatarURL, bio sql.NullString
 	var lastSeenAt sql.NullTime
-
-	err := s.db.QueryRowContext(ctx, updateSQL, req.DisplayName, req.Bio, req.AvatarURL, userID).
+	err := s.db.QueryRowContext(ctx, updateSQL, username, req.DisplayName, req.Bio, req.AvatarURL, userID).
 		Scan(&user.ID, &user.Username, &user.DisplayName, &user.Email, &avatarURL, &bio, &user.IsVerified, &user.IsOnline, &lastSeenAt, &user.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -455,7 +477,6 @@ func (s *postgresService) UpdateProfile(ctx context.Context, userID string, req 
 		}
 		return nil, fmt.Errorf("failed updating profile: %w", err)
 	}
-
 	user.AvatarURL = avatarURL.String
 	user.Bio = bio.String
 	if lastSeenAt.Valid {
