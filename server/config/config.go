@@ -110,6 +110,16 @@ func Load() (*Config, error) {
 		log.Println("[Config] Loaded environment variables from .env file")
 	}
 
+	resendAPIKey := getEnv("RESEND_API_KEY", "")
+	emailProvider := getEnv("EMAIL_PROVIDER", "")
+	if emailProvider == "" {
+		if resendAPIKey != "" {
+			emailProvider = "resend"
+		} else {
+			emailProvider = "console"
+		}
+	}
+
 	cfg := &Config{
 		App: AppConfig{
 			Name: getEnv("APP_NAME", "ChatApp"),
@@ -138,9 +148,9 @@ func Load() (*Config, error) {
 			ConnMaxIdleTime: getEnvAsDuration("DB_CONN_MAX_IDLE_TIME", 5*time.Minute),
 		},
 		Email: EmailConfig{
-			Provider:     getEnv("EMAIL_PROVIDER", "console"),
+			Provider:     emailProvider,
 			Environment:  getEnv("ENV", "development"),
-			ResendAPIKey: getEnv("RESEND_API_KEY", ""),
+			ResendAPIKey: resendAPIKey,
 			SMTPHost:     getEnv("SMTP_HOST", ""),
 			SMTPPort:     getEnv("SMTP_PORT", "587"),
 			SMTPUsername: getEnv("SMTP_USERNAME", ""),
