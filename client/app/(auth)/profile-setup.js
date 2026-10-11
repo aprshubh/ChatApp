@@ -207,7 +207,8 @@ export default function ProfileSetupPage() {
                 placeholder="username"
                 placeholderTextColor={theme.textMuted}
                 value={username}
-                onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_]/g, ''))}
+                onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30))}
+                maxLength={30}
                 autoCapitalize="none"
                 onFocus={() => setFocusedField('username')}
                 onBlur={() => setFocusedField(null)}
