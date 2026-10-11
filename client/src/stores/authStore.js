@@ -25,31 +25,40 @@ export const useAuthStore = create((set, get) => {
           storage.getUser(),
         ]);
 
-        if (savedToken) {
-          set({
-            token: savedToken,
-            user: savedUser || null,
-            isAuthenticated: true,
-          });
-
-          // Connect WebSocket
-          wsService.connect();
-
-          // Sync latest user profile in background
-          try {
-            const freshUser = await authApi.getMe();
-            if (freshUser) {
-              set({ user: freshUser });
-              await storage.saveUser(freshUser);
-            }
-          } catch (e) {
-            console.warn('[AuthStore] Background getMe refresh failed:', e.message);
-          }
-        } else {
+        if (!savedToken) {
+          wsService.disconnect();
           set({ isAuthenticated: false, user: null, token: null });
+          return;
+        }
+
+        let currentUser = savedUser || null;
+        try {
+          const freshUser = await authApi.getMe();
+          if (freshUser) {
+            currentUser = freshUser;
+            await storage.saveUser(freshUser);
+          }
+        } catch (e) {
+          // Keep cached data for offline display, but never assume verification
+          // from a failed network request when the cached user is unverified.
+          console.warn('[AuthStore] Could not refresh user during auth init:', e.message);
+        }
+
+        const isVerified = currentUser?.is_verified === true;
+        set({
+          token: savedToken,
+          user: currentUser,
+          isAuthenticated: isVerified,
+        });
+
+        if (isVerified) {
+          wsService.connect();
+        } else {
+          wsService.disconnect();
         }
       } catch (err) {
         console.warn('[AuthStore] initAuth error:', err);
+        wsService.disconnect();
         set({ isAuthenticated: false, user: null, token: null });
       } finally {
         set({ isLoading: false });
