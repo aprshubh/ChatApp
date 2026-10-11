@@ -36,6 +36,7 @@ type LogoutRequest struct {
 }
 
 type UpdateProfileRequest struct {
+	Username    *string `json:"username,omitempty"`
 	DisplayName *string `json:"display_name,omitempty"`
 	Bio         *string `json:"bio,omitempty"`
 	AvatarURL   *string `json:"avatar_url,omitempty"`
