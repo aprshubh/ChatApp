@@ -65,10 +65,19 @@ func (s *postgresService) Register(ctx context.Context, req RegisterRequest) (*A
 	emailAddr := strings.ToLower(strings.TrimSpace(req.Email))
 	displayName := strings.TrimSpace(req.DisplayName)
 	if displayName == "" {
-		displayName = req.Username
+		displayName = "User"
 	}
 
-	// 1. Check if user already exists
+	// Username is selected during profile setup. Until then, assign a
+	// collision-resistant temporary username so the users table's NOT NULL /
+	// unique requirements remain satisfied.
+	if username == "" {
+		username = "user_" + generateSecureHex(6)
+	}
+
+	// 1. Check if the email or an explicitly supplied username already exists.
+	// A generated temporary username is random and is also protected by the
+	// database's unique constraint.
 	var exists bool
 	checkQuery := `SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(email) = $1 OR LOWER(username) = $2)`
 	if err := s.db.QueryRowContext(ctx, checkQuery, emailAddr, username).Scan(&exists); err != nil {
