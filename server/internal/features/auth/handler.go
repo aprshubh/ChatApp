@@ -28,9 +28,10 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Username = strings.TrimSpace(req.Username)
+	req.DisplayName = strings.TrimSpace(req.DisplayName)
 	req.Email = strings.TrimSpace(req.Email)
-	if req.Username == "" || req.Email == "" || strings.TrimSpace(req.Password) == "" {
-		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "Username, email, and password are required"})
+	if req.DisplayName == "" || req.Email == "" || strings.TrimSpace(req.Password) == "" {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "Full name, email, and password are required"})
 		return
 	}
 
