@@ -155,14 +155,21 @@ export const authApi = {
     return request('/auth/me', { method: 'GET' });
   },
 
-  async updateProfile({ name, bio, avatar }) {
+  async updateProfile({ username, name, bio, avatar }) {
+    const payload = {};
+    if (username !== undefined) payload.username = username;
+    if (name !== undefined) payload.display_name = name;
+    if (bio !== undefined) payload.bio = bio;
+
+    // A device-local URI is not a URL the backend can access. Avatar uploads
+    // must go through the media upload flow before saving avatar_url.
+    if (typeof avatar === 'string' && /^https?:\\/\\//i.test(avatar)) {
+      payload.avatar_url = avatar;
+    }
+
     return request('/auth/me', {
       method: 'PUT',
-      body: JSON.stringify({
-        display_name: name,
-        bio,
-        avatar_url: avatar,
-      }),
+      body: JSON.stringify(payload),
     });
   },
 
@@ -183,7 +190,7 @@ export const authApi = {
   },
 
   async verifyEmail(token) {
-    return request('/auth/verify-email', {
+    return request('/auth/verify', {
       method: 'POST',
       body: JSON.stringify({ token }),
     });
