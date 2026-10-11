@@ -23,7 +23,7 @@ import { UserAvatar } from '../../src/components/UserAvatar';
 export default function ProfileSetupPage() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { user, updateUserProfile } = useAuthStore();
+  const { user, updateUserProfile, initAuth } = useAuthStore();
   const { themeMode } = useUIStore();
   const theme = Colors[themeMode] || Colors.dark;
 
@@ -39,6 +39,12 @@ export default function ProfileSetupPage() {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(14)).current;
+
+  // Email verification happens immediately before this screen. Re-hydrate
+  // the session here so the verified account becomes authenticated.
+  useEffect(() => {
+    initAuth();
+  }, [initAuth]);
 
   useEffect(() => {
     Animated.parallel([
