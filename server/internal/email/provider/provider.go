@@ -10,7 +10,7 @@ type Message struct {
 	HTML    string
 }
 
-// Sender is the only provider contract the email service depends on.
+// Sender is the provider contract used by the email application service.
 type Sender interface {
 	Send(ctx context.Context, message Message) error
 }
