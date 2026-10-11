@@ -115,12 +115,16 @@ export const useAuthStore = create((set, get) => {
           set({
             user: res.user || null,
             token: res.access_token,
-            isAuthenticated: true,
+            isAuthenticated: res.user?.is_verified === true,
             isLoading: false,
           });
 
           await sqliteService.init();
-          wsService.connect();
+          if (res.user?.is_verified === true) {
+            wsService.connect();
+          } else {
+            wsService.disconnect();
+          }
           return { success: true };
         }
 
