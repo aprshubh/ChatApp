@@ -163,7 +163,7 @@ export const authApi = {
 
     // A device-local URI is not a URL the backend can access. Avatar uploads
     // must go through the media upload flow before saving avatar_url.
-    if (typeof avatar === 'string' && /^https?:\\/\\//i.test(avatar)) {
+    if (typeof avatar === 'string' && (avatar.startsWith('https://') || avatar.startsWith('http://'))) {
       payload.avatar_url = avatar;
     }
 
