@@ -40,7 +40,13 @@ type StorageConfig struct {
 }
 
 type EmailConfig struct {
+	Provider     string
+	Environment  string
 	ResendAPIKey string
+	SMTPHost     string
+	SMTPPort     string
+	SMTPUsername string
+	SMTPPassword string
 	From         string
 	AppURL       string
 }
@@ -132,7 +138,13 @@ func Load() (*Config, error) {
 			ConnMaxIdleTime: getEnvAsDuration("DB_CONN_MAX_IDLE_TIME", 5*time.Minute),
 		},
 		Email: EmailConfig{
+			Provider:     getEnv("EMAIL_PROVIDER", "console"),
+			Environment:  getEnv("ENV", "development"),
 			ResendAPIKey: getEnv("RESEND_API_KEY", ""),
+			SMTPHost:     getEnv("SMTP_HOST", ""),
+			SMTPPort:     getEnv("SMTP_PORT", "587"),
+			SMTPUsername: getEnv("SMTP_USERNAME", ""),
+			SMTPPassword: getEnv("SMTP_PASSWORD", ""),
 			From:         getEnv("EMAIL_FROM", "onboarding@resend.dev"),
 			AppURL:       getEnv("APP_URL", "http://localhost:8080"),
 		},
