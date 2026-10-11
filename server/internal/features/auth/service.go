@@ -22,6 +22,7 @@ import (
 var (
 	ErrUserAlreadyExists  = errors.New("user with this email or username already exists")
 	ErrUsernameAlreadyExists = errors.New("username is already taken")
+	ErrEmailNotVerified = errors.New("please verify your email before signing in")
 	ErrInvalidCredentials = errors.New("invalid email/username or password")
 	ErrUserNotFound       = errors.New("user not found")
 	ErrInvalidToken       = errors.New("invalid or expired token")
@@ -118,15 +119,26 @@ func (s *postgresService) Register(ctx context.Context, req RegisterRequest) (*A
 		}(user.Email, user.Username, vToken)
 	}
 
-	// 5. Generate initial access token
+	// 5. Generate a session. Keeping a refresh token lets users complete
+	// email verification even if they open the email after the access token expires.
 	accessToken, err := s.generateAccessToken(user.ID, user.Username)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating access token: %w", err)
 	}
+	refreshTokenRaw := generateSecureHex(32)
+	_, refreshErr := s.db.ExecContext(ctx, `
+		INSERT INTO refresh_tokens (user_id, token_hash, user_agent, ip_address, expires_at)
+		VALUES ($1, $2, $3, $4, $5);
+	`, user.ID, hashSHA256(refreshTokenRaw), "", "", time.Now().UTC().Add(s.jwtCfg.RefreshExpiry))
+	if refreshErr != nil {
+		log.Printf("[Auth] Could not persist registration refresh token: %v", refreshErr)
+		refreshTokenRaw = ""
+	}
 
 	return &AuthResponse{
-		AccessToken: accessToken,
-		ExpiresIn:   int64(s.jwtCfg.AccessExpiry.Seconds()),
+		AccessToken:  accessToken,
+		RefreshToken: refreshTokenRaw,
+		ExpiresIn:    int64(s.jwtCfg.AccessExpiry.Seconds()),
 		User:        user,
 		Message:     "Registration successful! Please check your email to verify your account.",
 	}, nil
@@ -160,9 +172,12 @@ func (s *postgresService) Login(ctx context.Context, req LoginRequest, userAgent
 		user.LastSeenAt = lastSeenAt.Time
 	}
 
-	// Verify bcrypt password hash
+	// Verify bcrypt password hash before revealing verification status.
 	if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.Password)); err != nil {
 		return nil, ErrInvalidCredentials
+	}
+	if !user.IsVerified {
+		return nil, ErrEmailNotVerified
 	}
 
 	// Generate Access Token (JWT)
