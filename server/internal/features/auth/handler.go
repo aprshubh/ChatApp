@@ -2,7 +2,9 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"html"
 	"net/http"
 	"strconv"
 	"strings"
@@ -27,9 +29,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 	req.Username = strings.TrimSpace(req.Username)
 	req.Email = strings.TrimSpace(req.Email)
-	req.Password = strings.TrimSpace(req.Password)
-
-	if req.Username == "" || req.Email == "" || req.Password == "" {
+	if req.Username == "" || req.Email == "" || strings.TrimSpace(req.Password) == "" {
 		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "Username, email, and password are required"})
 		return
 	}
@@ -45,7 +45,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 			respondJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 			return
 		}
-		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to create account"})
 		return
 	}
 
@@ -60,9 +60,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Identifier = strings.TrimSpace(req.Identifier)
-	req.Password = strings.TrimSpace(req.Password)
 
-	if req.Identifier == "" || req.Password == "" {
+	if req.Identifier == "" || strings.TrimSpace(req.Password) == "" {
 		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "Identifier (email or username) and password are required"})
 		return
 	}
@@ -142,7 +141,7 @@ func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	// Browser GET friendly response
 	if r.Method == http.MethodGet && strings.Contains(r.Header.Get("Accept"), "text/html") {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, `<!DOCTYPE html><html><head><title>Verified</title><style>body{font-family:system-ui;text-align:center;padding:50px;background:#f9fafb}.card{background:white;display:inline-block;padding:40px;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,0.05)}h1{color:#16a34a}</style></head><body><div class="card"><h1>✓ Email Verified!</h1><p>Congratulations %s, your email address is verified.</p></div></body></html>`, user.Username)
+		fmt.Fprintf(w, `<!DOCTYPE html><html><head><title>Verified</title><style>body{font-family:system-ui;text-align:center;padding:50px;background:#f9fafb}.card{background:white;display:inline-block;padding:40px;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,0.05)}h1{color:#16a34a}</style></head><body><div class="card"><h1>✓ Email Verified!</h1><p>Congratulations %s, your email address is verified.</p></div></body></html>`, html.EscapeString(user.Username))
 		return
 	}
 
@@ -255,6 +254,18 @@ func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.svc.UpdateProfile(r.Context(), userID, req)
 	if err != nil {
+		if errors.Is(err, ErrUsernameAlreadyExists) {
+			respondJSON(w, http.StatusConflict, map[string]string{"error": ErrUsernameAlreadyExists.Error()})
+			return
+		}
+		if errors.Is(err, ErrUserNotFound) {
+			respondJSON(w, http.StatusNotFound, map[string]string{"error": ErrUserNotFound.Error()})
+			return
+		}
+		if strings.Contains(err.Error(), "username must be") || strings.Contains(err.Error(), "username may contain") {
+			respondJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
 		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed updating profile"})
 		return
 	}
