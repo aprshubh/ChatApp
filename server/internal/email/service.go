@@ -109,13 +109,13 @@ func (s *emailService) send(to, subject, htmlBody string) error {
 	if s.sender == nil {
 		return fmt.Errorf("email sender is not configured")
 	}
-	if strings.TrimSpace(to) == "" || strings.ContainsAny(to, "\\r\\n") {
+	if strings.TrimSpace(to) == "" || strings.ContainsAny(to, "\r\n") {
 		return fmt.Errorf("email recipient is invalid")
 	}
-	if strings.TrimSpace(s.cfg.From) == "" || strings.ContainsAny(s.cfg.From, "\\r\\n") {
+	if strings.TrimSpace(s.cfg.From) == "" || strings.ContainsAny(s.cfg.From, "\r\n") {
 		return fmt.Errorf("EMAIL_FROM is invalid")
 	}
-	if strings.ContainsAny(subject, "\\r\\n") {
+	if strings.ContainsAny(subject, "\r\n") {
 		return fmt.Errorf("email subject contains invalid line breaks")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
