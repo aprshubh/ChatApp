@@ -13,7 +13,8 @@ import (
 // SMTPConfig contains SMTP submission settings.
 type SMTPConfig struct { Host, Port, Username, Password string }
 
-// SMTPSender implements SMTP with mandatory TLS/STARTTLS.
+// SMTPSender supports implicit TLS on port 465 and mandatory STARTTLS on
+// other submission ports. It never sends credentials over plaintext SMTP.
 type SMTPSender struct { cfg SMTPConfig }
 
 func NewSMTPSender(cfg SMTPConfig) (*SMTPSender, error) {
@@ -29,11 +30,18 @@ func (s *SMTPSender) Send(ctx context.Context, message Message) error {
 	if err != nil { return fmt.Errorf("connect to SMTP server: %w", err) }
 	defer conn.Close()
 	if deadline, ok := ctx.Deadline(); ok { _ = conn.SetDeadline(deadline) } else { _ = conn.SetDeadline(time.Now().Add(15*time.Second)) }
+	if s.cfg.Port == "465" {
+		tlsConn := tls.Client(conn, &tls.Config{ServerName:s.cfg.Host, MinVersion:tls.VersionTLS12})
+		if err := tlsConn.HandshakeContext(ctx); err != nil { return fmt.Errorf("establish SMTP TLS: %w", err) }
+		conn = tlsConn
+	}
 	client, err := smtp.NewClient(conn, s.cfg.Host)
 	if err != nil { return fmt.Errorf("initialize SMTP client: %w", err) }
 	defer client.Close()
-	if ok, _ := client.Extension("STARTTLS"); !ok { return fmt.Errorf("SMTP server does not advertise STARTTLS; refusing an unencrypted connection") }
-	if err := client.StartTLS(&tls.Config{ServerName:s.cfg.Host, MinVersion:tls.VersionTLS12}); err != nil { return fmt.Errorf("start SMTP TLS: %w", err) }
+	if s.cfg.Port != "465" {
+		if ok, _ := client.Extension("STARTTLS"); !ok { return fmt.Errorf("SMTP server does not advertise STARTTLS; refusing an unencrypted connection") }
+		if err := client.StartTLS(&tls.Config{ServerName:s.cfg.Host, MinVersion:tls.VersionTLS12}); err != nil { return fmt.Errorf("start SMTP TLS: %w", err) }
+	}
 	if s.cfg.Username != "" {
 		if ok, _ := client.Extension("AUTH"); !ok { return fmt.Errorf("SMTP server does not support AUTH") }
 		if err := client.Auth(smtp.PlainAuth("", s.cfg.Username, s.cfg.Password, s.cfg.Host)); err != nil { return fmt.Errorf("authenticate with SMTP server: %w", err) }
