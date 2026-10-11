@@ -325,7 +325,9 @@ func (s *postgresService) ResendVerification(ctx context.Context, emailAddr stri
 
 	if s.emailSvc != nil {
 		go func() {
-			_ = s.emailSvc.SendVerificationEmail(emailAddr, username, vToken)
+			if err := s.emailSvc.SendVerificationEmail(emailAddr, username, vToken); err != nil {
+				log.Printf("[Auth] Failed to send verification email: %v", err)
+			}
 		}()
 	}
 
@@ -499,7 +501,9 @@ func (s *postgresService) ForgotPassword(ctx context.Context, emailAddr string) 
 
 	if s.emailSvc != nil {
 		go func() {
-			_ = s.emailSvc.SendPasswordResetEmail(emailAddr, username, token)
+			if err := s.emailSvc.SendPasswordResetEmail(emailAddr, username, token); err != nil {
+				log.Printf("[Auth] Failed to send password reset email: %v", err)
+			}
 		}()
 	}
 
