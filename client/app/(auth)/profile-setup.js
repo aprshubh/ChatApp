@@ -28,7 +28,10 @@ export default function ProfileSetupPage() {
   const theme = Colors[themeMode] || Colors.dark;
 
   const initialName = params.name || user?.display_name || user?.name || 'User';
-  const defaultUsername = user?.username || initialName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  // The backend username is temporary until this screen is saved.
+  // Suggest a readable username from the display name; the user can edit it.
+  const defaultUsername =
+    initialName.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_+|_+$/g, '').slice(0, 30) || 'user';
 
   const [username, setUsername] = useState(defaultUsername);
   const [bio, setBio] = useState('Hey there! I am using ChatApp.');
