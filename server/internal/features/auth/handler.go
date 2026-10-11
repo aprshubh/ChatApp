@@ -71,8 +71,12 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.svc.Login(r.Context(), req, userAgent, ipAddress)
 	if err != nil {
-		if err == ErrInvalidCredentials {
+		if errors.Is(err, ErrInvalidCredentials) {
 			respondJSON(w, http.StatusUnauthorized, map[string]string{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, ErrEmailNotVerified) {
+			respondJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 			return
 		}
 		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to process login"})
