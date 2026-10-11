@@ -32,23 +32,25 @@ export const useAuthStore = create((set, get) => {
         }
 
         let currentUser = savedUser || null;
+        let verifiedByServer = false;
         try {
           const freshUser = await authApi.getMe();
           if (freshUser) {
             currentUser = freshUser;
+            verifiedByServer = freshUser.is_verified === true;
             await storage.saveUser(freshUser);
           }
         } catch (e) {
-          // Keep cached data for offline display, but never assume verification
-          // from a failed network request when the cached user is unverified.
+          // A cached profile is useful for display, but a failed server check
+          // must not turn an expired or revoked session into an authenticated one.
           console.warn('[AuthStore] Could not refresh user during auth init:', e.message);
         }
 
-        const isVerified = currentUser?.is_verified === true;
+        const currentToken = await storage.getToken();
         set({
-          token: savedToken,
+          token: currentToken || savedToken,
           user: currentUser,
-          isAuthenticated: isVerified,
+          isAuthenticated: verifiedByServer,
         });
 
         if (isVerified) {
